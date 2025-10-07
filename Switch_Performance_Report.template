@@ -1,0 +1,260 @@
+##template properties
+name =Switch_Performance_Report;
+description = ;
+tags =device;
+userDefined = true;
+supportedPlatforms = All;
+templateType = REPORT;
+templateSubType = GENERIC;
+contentType = PYTHON;
+implements =implements;
+dependencies = ;
+published = false;
+imports = ;
+##
+##template variables
+@(IsInternal=true)
+string serial_number;
+
+@(IsMandatory=true, DisplayName="Include CPU")
+enum do_cpu{
+    validValues = true, false;
+    defaultValue = true;
+};
+
+@(IsMandatory=true, DisplayName="Include Memory")
+enum do_memory{
+    validValues = true, false;
+    defaultValue = true;
+};
+
+@(IsMandatory=true, DisplayName="Include Other Ports")
+enum do_eth{
+    validValues = true, false;
+    defaultValue = true;
+};
+
+@(IsMandatory=true, DisplayName="Top records to Chart")
+integer TopRecords{
+    defaultValue = 3;
+    min = 1;
+};
+
+##
+##template content
+
+from collections import OrderedDict
+from datetime import datetime
+from reportlib.preport import *
+import reportlib.rest_util as rest_util
+
+from com.cisco.dcbu.vinci.rest.services.jython import WrappersResp
+from com.cisco.dcbu.vinci.rest.services.jython import Wrapper
+from com.cisco.dcbu.vinci.rest.services.jython import InventoryWrapper
+#Scope specific functions for API focused reports
+navId = "-1"
+
+def generateReport(context):
+    try:
+        respObj = WrappersResp.getRespObj()
+        Logger.info("Performance Report Started!")
+        report = Report("Performance Report")
+        summary = report.add_summary()
+
+        dbid = get_dbid(serial_number)
+        Logger.info("DB Id is {}".format(dbid))
+        if do_cpu == "true" :
+            process_cpu_performance(report, summary, dbid)
+        if do_memory == "true" :
+            process_memory_performance(report, summary, dbid)
+        if do_eth == "true" :
+            process_eth_performance(report, summary, dbid)
+        if do_cpu != "true" and do_memory != "true" and do_eth != "true":
+            summary["Error"] = Formatter.add_marker("No sub-reports selected", Marker.ERROR)
+            raise Exception("No sub-reports selected")
+
+    except Exception as e:
+        Logger.error("Performance Report failed: Exception has occured while generating Performance poc report: " + str(e))
+        respObj.setFailureRetCode()
+        respObj.addErrorReport('Performance-memory', "Unexpected error occurred. Please check all the services are running and try again.")
+        respObj.setValue(report)
+        return respObj
+
+    Logger.info("Performance Report Complete!")
+    respObj.setSuccessRetCode()
+    respObj.setValue(report)
+    return respObj
+
+def get_dbid(serial_number):
+    return str(InventoryWrapper.getLanSwitchDbId(serial_number))
+
+def get_traffic_chart(rrdFile, pmType):
+    pm_service = Wrapper.getEnv("DCNM_PM_WORKER_SVC")
+    resp = rest_util.get("https://{}/stat/pmChartData".format(pm_service), "rrdFile={}".format(rrdFile), "pmType={}".format(pmType), "fid=10", "interval=1", "navId=-1")
+    return json.loads(resp)
+
+def get_chart(rrdFile, pmType):
+    pm_service = Wrapper.getEnv("DCNM_PM_WORKER_SVC")
+    resp = rest_util.get("https://{}/stat/pmChartData".format(pm_service), "rrdFile={}".format(rrdFile), "pmType={}".format(pmType), "fid=10", "interval=1", "navId=-1")
+    return json.loads(resp)
+
+def get_cpu_data():
+    pm_service = Wrapper.getEnv("DCNM_PM_WORKER_SVC")
+    resp = rest_util.get("https://{}/stat/cpuStatES".format(pm_service), "interval=Day", "navId="+navId)
+    return json.loads(resp)
+
+def get_memory_data():
+    pm_service = Wrapper.getEnv("DCNM_PM_WORKER_SVC")
+    resp = rest_util.get("https://{}/stat/memoryStatES".format(pm_service), "interval=Day", "navId="+navId)
+    return json.loads(resp)
+
+def get_isl_data():
+    pm_service = Wrapper.getEnv("DCNM_PM_WORKER_SVC")
+    resp = rest_util.get("https://{}/stat/lanIslStat".format(pm_service), "interval=Day", "navId="+navId)
+    return json.loads(resp)
+
+def get_ethernet_data():
+    pm_service = Wrapper.getEnv("DCNM_PM_WORKER_SVC")
+    resp = rest_util.get("https://{}/stat/LanEthernetStat".format(pm_service), "interval=Day", "navId="+navId)
+    return json.loads(resp)
+
+def get_threshold_value(row, name, threshold, marker):
+  ret = ""
+  val = row[name]
+  val_string = str(row[name])
+  if(isinstance(val, int)):
+    val_type_checked = val
+  elif(isinstance(val, float)):
+    val_type_checked = int(val)
+  else:
+    val_type_checked = str(val)
+  try:
+    if isinstance(val_type_checked, str) and val_type_checked.lower() == "n/a": # When we get "n/a" we'll keep the original and send back without any formatter marker
+      return Formatter.add_marker("N/A", "NONE")
+    if isinstance(val_type_checked, str) and val_string == "NaN":
+      return Formatter.add_marker(val_string, "NONE")
+    if val_type_checked == 0: # When we get 0 we'll keep the original and send back without any formatter marker
+      return Formatter.add_marker(0, "NONE")
+    if val_type_checked > threshold:
+      ret = Formatter.add_marker(val_string, marker)
+    else:
+      if val_type_checked == -1: # When we get -1 we'll keep the original and send back without any formatter marker
+        return Formatter.add_marker(-1, "NONE")
+      ret = Formatter.add_marker(val_string, Marker.SUCCESS)
+  except Exception as e:
+    Logger.info("Hit exception, will maintain without formatter marker with raw value for " + val_string + ": " + str(e))
+    ret = Formatter.add_marker(val_string, "NONE")
+  return ret
+
+def print_chart(chart, series, data, ind):
+    dataObj=None
+    for obj in data:
+      if 'data' in obj and obj["name"] == ind:
+        dataObj = obj["data"];
+    Logger.info(json.dumps(dataObj))
+    if dataObj:
+      for datum in dataObj:
+        timest = (datetime.fromtimestamp(datum[0]/1000)).strftime("%H:%M")
+        chart.add_value(series, datum[1], timest)
+
+def process_eth_performance(report, summary, dbid):
+    Logger.info('Inside process_eth_performance')
+    traffic_info = report.add_section("Performance-ethernet", "performance-ethernet")
+    bar_chart = summary.add_chart(ChartTypes.LINE_CHART, 'line-eth')
+    bar_chart.set_title('Top '+ TopRecords+' Interfaces in the last Day')
+    bar_chart.set_xAxis_title("Time")
+    bar_chart.set_yAxis_title("Bytes/Sec")
+
+    #for key in bar_chart_val_dict.keys():
+    #    bar_chart.add_value(key, bar_chart_val_dict[key])
+
+    rows = get_ethernet_data()
+    rows = sorted(rows, key = lambda i: i['rxTx'],reverse=True)
+    i = 1
+    for row in rows:
+      if dbid == str(row["switchDbId"]):
+        temp = OrderedDict()
+        temp["Switch"] = str(row["entityName"])
+        temp["Interface"] = str(row["swIfName"])
+        temp["Speed"] = str(row["speedStr"])
+        temp["Average Rx"] = str(row["avgRxStr"])
+        temp["Average Rx %"] = str(row["rxUtil"])
+        temp["Average Tx"] = str(row["avgTxStr"])
+        temp["Average Tx %"] = str(row["txUtil"])
+        temp["Max Rx"] = str(row["maxRxStr"])
+        temp["Max Rx %"] = get_threshold_value(row, "pRxUtil", 50, Marker.WARNING)
+        temp["Max Tx"] = str(row["maxTxStr"])
+        temp["Max Tx %"] = get_threshold_value(row, "pTxUtil", 50, Marker.WARNING)
+        temp["Discards"] = get_threshold_value(row, "avgDiscard", 0, Marker.ERROR)
+        temp["Errors"] = get_threshold_value(row, "avgError", 0, Marker.ERROR)
+        traffic_info.append("Performance-ethernet", temp, "{}-{}".format(temp["Switch"], temp["Interface"]))
+
+        if str(row["rrdFile"]) != "None":
+            local_bar_chart = traffic_info.add_chart(ChartTypes.LINE_CHART, 'line-eth'+temp["Switch"]+'-'+temp["Interface"])
+            local_bar_chart.set_xAxis_title("Time")
+            local_bar_chart.set_yAxis_title("Bytes/Sec")
+            data = get_traffic_chart(str(row["rrdFile"]), str(row["pmtype"]))
+            print_chart(local_bar_chart,"{}-{}-Rx".format(temp["Switch"], temp["Interface"]),data, "Rx")
+            print_chart(local_bar_chart,"{}-{}-Tx".format(temp["Switch"], temp["Interface"]),data, "Tx")
+        if i <= int(TopRecords) and  str(row["rrdFile"]) != "None":
+            data = get_traffic_chart(str(row["rrdFile"]), str(row["pmtype"]))
+            print_chart(bar_chart,"{}-{}-Rx".format(temp["Switch"], temp["Interface"]),data, "Rx")
+            print_chart(bar_chart,"{}-{}-Tx".format(temp["Switch"], temp["Interface"]),data, "Tx")
+
+        i=i+1
+
+def process_memory_performance(report, summary, dbid):
+    Logger.info('Inside process_memory_performance')
+    memory_info = report.add_section("Performance-memory", "performance-mem")
+    bar_chart = summary.add_chart(ChartTypes.LINE_CHART, 'line-memory')
+    bar_chart.set_title(' Memory usage in the last Day')
+    bar_chart.set_xAxis_title("Time")
+    bar_chart.set_yAxis_title("%")
+
+    rows = get_memory_data()
+    rows = sorted(rows, key = lambda i: i['lastDayMaxRx'],reverse=True)
+    unique_id=0
+    for row in rows:
+      unique_id+=1
+      if dbid == str(row["switchDbId"]):
+        temp = OrderedDict()
+        temp["fabricName"] = str(row["fabric"])
+        temp["switchName"] = str(row["entityName"])
+        temp["ipAddress"] = str(row["swIpAddress"])
+        temp["Average %"] = str(row["avgRxStr"])
+        temp["Peak %"] = str(row["maxRxStr"])
+        temp["Last Updated"] = str(row["lastUpdateTimeStr"])
+        memory_info.append("Memory", temp, "{}-{}-{}".format(temp["fabricName"], temp["switchName"], unique_id))
+
+        data = get_chart(str(row["rrdFile"]), str(row["pmtype"]))
+        print_chart(bar_chart,temp["switchName"],data, "Value")
+
+def process_cpu_performance(report, summary, dbid):
+    Logger.info('Inside process_cpu_performance')
+    cpu_info = report.add_section("Performance-cpu", "performance-cpu")
+
+    bar_chart = summary.add_chart(ChartTypes.LINE_CHART, 'line-cpu')
+    bar_chart.set_title('CPU Usage in the last Day')
+    bar_chart.set_xAxis_title("Time")
+    bar_chart.set_yAxis_title("%")
+
+    rows = get_cpu_data()
+    rows = sorted(rows, key = lambda i: i['lastDayMaxRx'],reverse=True)
+    rrdFile = ""
+    unique_id=0
+    for row in rows:
+      unique_id+=1
+      if dbid == str(row["switchDbId"]):
+        temp = OrderedDict()
+        temp["fabricName"] = str(row["fabric"])
+        temp["switchName"] = str(row["entityName"])
+        temp["ipAddress"] = str(row["swIpAddress"])
+        temp["Average %"] = str(row["avgRxStr"])
+        temp["Peak %"] = str(row["maxRxStr"])
+        temp["Last Updated"] = str(row["lastUpdateTimeStr"])
+        cpu_info.append("CPU", temp, "{}-{}-{}".format(temp["fabricName"], temp["switchName"], unique_id))
+
+        data = get_chart(str(row["rrdFile"]), str(row["pmtype"]))
+        print_chart(bar_chart,temp["switchName"],data, "Value")
+
+##
