@@ -1,0 +1,135 @@
+##template properties
+name = device_cpu_mem_report;
+userDefined = true;
+supportedPlatforms = All;
+templateType = REPORT;
+subType = GENERIC;
+published = false;
+description = "Relatório por dispositivo: consumo de CPU e Memória via 'show system resources'";
+
+##
+##template variables
+# Opcional: lista de números de série separados por vírgula (se vazio, usa os dispositivos selecionados no wizard do Report)
+serials;
+
+##
+##template content
+from reportlib.preport import Report, WrappersResp, show_and_store, Formatter, ChartTypes
+
+import re
+
+# ----------------------
+# Helpers de parsing
+# ----------------------
+def _to_float_safe(x, default=0.0):
+    try:
+        return float(x)
+    except Exception:
+        return default
+
+def parse_show_system_resources(raw_txt):
+    """
+    Exemplo de saída:
+      Load average:   1 minute: 0.43   5 minutes: 0.17   15 minutes: 0.11
+      Processes   :   100 total, 2 running
+      CPU states  :   0.0% user,   0.0% kernel,   100.0% idle
+      Memory usage:   1027628K total,    313424K used,    714204K free
+                         3620K buffers,   22278K cache
+    """
+    data = {
+        'load_1m': None, 'load_5m': None, 'load_15m': None,
+        'process_total': None, 'process_running': None,
+        'cpu_user_pct': None, 'cpu_kernel_pct': None, 'cpu_idle_pct': None, 'cpu_used_pct': None,
+        'mem_total_kb': None, 'mem_used_kb': None, 'mem_free_kb': None, 'mem_used_pct': None,
+        'mem_buffers_kb': None, 'mem_cache_kb': None,
+    }
+
+    # Load averages
+    m = re.search(r'Load average:\s*1 minute:\s*([0-9.]+)\s*5 minutes:\s*([0-9.]+)\s*15 minutes:\s*([0-9.]+)', raw_txt)
+    if m:
+        data['load_1m'] = _to_float_safe(m.group(1))
+        data['load_5m'] = _to_float_safe(m.group(2))
+        data['load_15m'] = _to_float_safe(m.group(3))
+
+    # Processes
+    m = re.search(r'Processes\s*:\s*([0-9]+)\s*total,\s*([0-9]+)\s*running', raw_txt, re.IGNORECASE)
+    if m:
+        data['process_total'] = int(m.group(1))
+        data['process_running'] = int(m.group(2))
+
+    # CPU
+    m = re.search(r'CPU states\s*:\s*([0-9.]+)%\s*user,\s*([0-9.]+)%\s*kernel,\s*([0-9.]+)%\s*idle', raw_txt, re.IGNORECASE)
+    if m:
+        data['cpu_user_pct'] = _to_float_safe(m.group(1))
+        data['cpu_kernel_pct'] = _to_float_safe(m.group(2))
+        data['cpu_idle_pct'] = _to_float_safe(m.group(3))
+        data['cpu_used_pct'] = round(max(0.0, 100.0 - data['cpu_idle_pct']), 2)
+
+    # Memory 1ª linha
+    m = re.search(r'Memory usage:\s*([0-9]+)K\s*total,\s*([0-9]+)K\s*used,\s*([0-9]+)K\s*free', raw_txt, re.IGNORECASE)
+    if m:
+        data['mem_total_kb'] = int(m.group(1))
+        data['mem_used_kb'] = int(m.group(2))
+        data['mem_free_kb'] = int(m.group(3))
+        if data['mem_total_kb'] and data['mem_used_kb'] is not None:
+            data['mem_used_pct'] = round(100.0 * (data['mem_used_kb'] / float(data['mem_total_kb'])), 2)
+
+    # Buffers/Cache (opcional)
+    m = re.search(r'([0-9]+)K\s*buffers,\s*([0-9]+)K\s*cache', raw_txt, re.IGNORECASE)
+    if m:
+        data['mem_buffers_kb'] = int(m.group(1))
+        data['mem_cache_kb'] = int(m.group(2))
+
+    return data
+
+def _get_target_serials(context, serials_string):
+    """
+    Prioridade:
+      1) Variável 'serials' preenchida (CSV de números de série)
+      2) Entidades do contexto (quando o job é criado selecionando Devices)
+    """
+    # 1) variável do template
+    csv = (serials_string or "").strip()
+    if csv:
+        return [s.strip() for s in csv.split(",") if s.strip()]
+
+    # 2) tentar extrair do contexto (framework do NDFC)
+    # Alguns ambientes expõem 'context.entities' ou equivalente.
+    try:
+        ents = context.get('entities')  # lista de serials/vdcs
+        if ents:
+            return ents
+    except Exception:
+        pass
+
+    # Se nada, devolve vazio para forçar erro amigável
+    return []
+
+def generateReport(context):
+    resp = WrappersResp.getRespObj()
+    try:
+        report = Report("Device CPU/Memory Report")
+
+        # Resumo com tabela agregada
+        summary = report.add_summary()
+        table = summary.add_table("CPU/Memory Utilization", "cpu_mem_table")
+
+        serials_input = "$$serials$$"
+        targets = _get_target_serials(context, serials_input)
+        if not targets:
+            summary.add_message("Nenhum dispositivo alvo encontrado (preencha a variável 'serials' ou selecione dispositivos ao criar o Report).")
+            resp.setValue(report)
+            resp.setFailureRetcode()
+            return resp
+
+        # Executa o show e armazena no Command Log do report
+        # Obs: plain CLI (sem | xml). O parsing cuida do formato.   
+- **Report → Device scope:** marcando **Tags = Device**, o template aparece para relatórios por dispositivo; no wizard você escolhe os switches. :contentReference[oaicite:5]{index=5}  
+- **Saída em texto puro:** `show system resources` retorna **plain CLI**, por isso o parser trata o texto (se sua imagem suportar `| json`/`| xml` você pode trocar e simplificar com as helpers XML/JSON do SDK). :contentReference[oaicite:6]{index=6}  
+- **Comparação histórica / agendamentos:** você pode agendar (Now/Daily/Weekly/Periodic) e comparar execuções para ver evolução (CPU/Mem) por dispositivo. :contentReference[oaicite:7]{index=7}
+
+Se quiser, eu adapto para:
+- também plotar um **gráfico** (Chart) no Summary com top N devices por CPU/Mem;  
+- aceitar **limiares** como variáveis (ex.: `cpu_threshold`, `mem_threshold`);  
+- usar `| xml` e o parser XML do SDK (se a versão do NX-OS retornar em XML).
+::contentReference[oaicite:8]{index=8}
