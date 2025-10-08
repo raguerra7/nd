@@ -1,6 +1,6 @@
 ##template properties
 name =User_Defined;
-description = User-defined report CPU and Mem;
+description = User-defined report;
 tags =san-userdefined;
 userDefined = true;
 supportedPlatforms = All;
@@ -53,4 +53,602 @@ defaultValue=All;
 @(IsMandatory=true, IsShow="ADD_INVENTORY==true", DisplayName="SWITCHES", Description="Enable to add Switches report", Section="Inventory")
 boolean INVENTORY_SWITCHES
 {
-defaultValue=fals
+defaultValue=false;
+};
+
+@(IsMandatory=true, IsShow="INVENTORY_SWITCHES==true", Enum="off,on", DisplayName="Include switches details", Description="Enable to include Switches details", Section="Inventory")
+string INVENTORY_SWITCHES_INCLUDE_DETAILS
+{
+defaultValue=off;
+};
+
+@(IsMandatory=true, IsShow="INVENTORY_SWITCHES==true", Enum="All,Warning", DisplayName="Switches status", Description="Select status for Switches", Section="Inventory")
+string INVENTORY_SWITCHES_STATUS
+{
+defaultValue=All;
+};
+
+# INVENTORY-LICENSES
+@(IsMandatory=true, IsShow="ADD_INVENTORY==true", DisplayName="LICENSES", Description="Enable to add Licenses report", Section="Inventory")
+boolean INVENTORY_LICENSE
+{
+defaultValue=false;
+};
+
+@(IsMandatory=true, IsShow="INVENTORY_LICENSE==true", Enum="All,Warning", DisplayName="License status", Description="Select status for Licenses", Section="Inventory")
+string INVENTORY_LICENSE_STATUS
+{
+defaultValue=All;
+};
+
+# INVENTORY-MODULES
+@(IsMandatory=true, IsShow="ADD_INVENTORY==true", DisplayName="MODULES", Description="Enable to add Modules report", Section="Inventory")
+boolean INVENTORY_MODULE
+{
+defaultValue=false;
+};
+
+@(IsMandatory=true, IsShow="INVENTORY_MODULE==true", Enum="All,Warning", DisplayName="Module status", Description="Select status for Modules", Section="Inventory")
+string INVENTORY_MODULE_STATUS
+{
+defaultValue=All;
+};
+
+# INVENTORY-END DEVICES
+@(IsMandatory=true, IsShow="ADD_INVENTORY==true", DisplayName="END DEVICES", Description="Enable to add End Devices report", Section="Inventory")
+boolean INVENTORY_END_DEVICE
+{
+defaultValue=false;
+};
+
+@(IsMandatory=true, IsShow="INVENTORY_END_DEVICE==true", Enum="All,hosts,storage", DisplayName="End device type", Description="Select type of End Devices", Section="Inventory")
+string INVENTORY_END_DEVICE_TYPE
+{
+defaultValue=All;
+};
+
+# INVENTORY-ISLs
+@(IsMandatory=true, IsShow="ADD_INVENTORY==true", DisplayName="ISLs", Description="Enable to add ISL report", Section="Inventory")
+boolean INVENTORY_ISL
+{
+defaultValue=false;
+};
+
+@(IsMandatory=true, IsShow="INVENTORY_ISL==true", Enum="All,Warning", DisplayName="ISL status", Description="Select status for ISLs", Section="Inventory")
+string INVENTORY_ISL_STATUS
+{
+defaultValue=All;
+};
+
+# INVENTORY-Zone
+@(IsMandatory=true, IsShow="ADD_INVENTORY==true", DisplayName="ZONES", Description="Enable to add Zones report", Section="Inventory")
+boolean INVENTORY_ZONE
+{
+defaultValue=false;
+};
+
+@(IsMandatory=true, IsShow="INVENTORY_ZONE==true", Enum="All,Warning", DisplayName="Zone status", Description="Select status for Zones", Section="Inventory")
+string INVENTORY_ZONE_STATUS
+{
+defaultValue=All;
+};
+
+
+# PERFORMANCE
+@(IsMandatory=true, DisplayName="PERFORMANCE", Description="Enable to add performance reports", Section="Performance")
+boolean ADD_PERFORMANCE
+{
+defaultValue=false;
+};
+
+# PERFORMANCE-UTILZN-SUMMARY
+@(IsMandatory=true, IsShow="ADD_PERFORMANCE==true", DisplayName="UTILIZATION SUMMARY", Description="Enable to add Utilization Summary report", Section="Performance")
+boolean PERFORMANCE_UTILZN_SUMMARY
+{
+defaultValue=false;
+};
+
+@(IsMandatory=true, IsShow="PERFORMANCE_UTILZN_SUMMARY==true", Enum="10,20,50,All", DisplayName="Show Top", Description="Select number of top records to display in the Utilization Summary report", Section="Performance")
+string PERFORMANCE_UTILZN_SUMMARY_TOP
+{
+defaultValue=10;
+};
+
+# PERFORMANCE-END-DEVICES
+@(IsMandatory=true, IsShow="ADD_PERFORMANCE==true", DisplayName="END DEVICES", Description="Enable to add End Devices report", Section="Performance")
+boolean PERFORMANCE_END_DEVICES
+{
+defaultValue=false;
+};
+
+@(IsMandatory=true, IsShow="PERFORMANCE_END_DEVICES==true", Enum="10,20,50,All", DisplayName="Show Top", Description="Select number of top records to display in the End Devices report", Section="Performance")
+string PERFORMANCE_END_DEVICES_TOP
+{
+defaultValue=10;
+};
+
+@(IsMandatory=true, IsShow="PERFORMANCE_END_DEVICES==true", Enum="All Ports,Host Ports,Host Enclosures,Storage Ports,Storage Enclosures,Port Groups", DisplayName="Type", Description="Select type of End Devices", Section="Performance")
+string PERFORMANCE_END_DEVICES_TYPE
+{
+defaultValue=All Ports;
+};
+
+@(IsMandatory=true, IsShow="PERFORMANCE_END_DEVICES==true", Enum="off,on", DisplayName="Embed Chart In Report", Description="Enable to embed charts in the End Devices report", Section="Performance")
+string PERFORMANCE_END_DEVICES_EMBED_CHARTS
+{
+defaultValue=off;
+};
+
+@(IsMandatory=true, IsShow="PERFORMANCE_END_DEVICES_EMBED_CHARTS==on", Enum="off,on",  DisplayName="Use Fix Value Range For Charts", Description="Enable to have a fixed value range for embedded charts in the End Devices report", Section="Performance")
+string PERFORMANCE_END_DEVICES_FIX_VALUE_RANGE_CHARTS
+{
+defaultValue=off;
+};
+
+@(IsMandatory=false, IsShow="PERFORMANCE_END_DEVICES_EMBED_CHARTS==on", DisplayName="Y Axis Value Range", Description="Enter the range as X-Y (eg. 10-35) for y axis value range in the End Devices report", Section="Performance")
+integerRange PERFORMANCE_END_DEVICES_Y_AXIS_RANGE
+{
+min=0;
+max=50000;
+defaultValue=1-100;
+};
+
+@(IsMandatory=false, IsShow="PERFORMANCE_END_DEVICES_EMBED_CHARTS==on", Enum="B,KB,MB", DisplayName="Y Axis Value Metric", Description="Pick the metric for y axis values in the End Devices report (B/KB/MB)", Section="Performance")
+string PERFORMANCE_END_DEVICES_Y_AXIS_METRIC
+{
+defaultValue=MB;
+};
+
+# PERFORMANCE-ISLs
+@(IsMandatory=true, IsShow="ADD_PERFORMANCE==true", DisplayName="ISLs", Description="Enable to add ISL report", Section="Performance")
+boolean PERFORMANCE_ISL
+{
+defaultValue=false;
+};
+
+@(IsMandatory=true, IsShow="PERFORMANCE_ISL==true", Enum="10,20,50,All", DisplayName="Show Top", Description="Select number of top records to display in the ISL report", Section="Performance")
+string PERFORMANCE_ISL_TOP
+{
+defaultValue=10;
+};
+
+@(IsMandatory=true, IsShow="PERFORMANCE_ISL==true", Enum="off,on", DisplayName="Embed Chart In Report", Description="Enable to embed charts in the ISL report", Section="Performance")
+string PERFORMANCE_ISL_EMBED_CHARTS
+{
+defaultValue=off;
+};
+
+@(IsMandatory=true, IsShow="PERFORMANCE_ISL_EMBED_CHARTS==on", Enum="off,on", DisplayName="Use Fix Value Range For Charts", Description="Enable to have a fixed value range for embedded charts in the ISL report", Section="Performance")
+string PERFORMANCE_ISL_FIX_VALUE_RANGE_CHARTS
+{
+defaultValue=off;
+};
+
+@(IsMandatory=false, IsShow="PERFORMANCE_ISL_EMBED_CHARTS==on", DisplayName="Y Axis Value Range", Description="Enter the range as X-Y (eg. 10-35) for y axis value range in the ISL report", Section="Performance")
+integerRange PERFORMANCE_ISL_Y_AXIS_RANGE
+{
+min=0;
+max=50000;
+defaultValue=1-100;
+};
+
+@(IsMandatory=false, IsShow="PERFORMANCE_ISL_EMBED_CHARTS==on", Enum="B,KB,MB", DisplayName="Y Axis Value Metric", Description="Pick the metric for y axis values in the ISL report (B/KB/MB)", Section="Performance")
+string PERFORMANCE_ISL_Y_AXIS_METRIC
+{
+defaultValue=MB;
+};
+
+# PERFORMANCE-NPV-LINKS
+@(IsMandatory=true, IsShow="ADD_PERFORMANCE==true", DisplayName="NPV LINKS", Description="Enable to add NPV Links report", Section="Performance")
+boolean PERFORMANCE_NPV_LINKS
+{
+defaultValue=false;
+};
+
+@(IsMandatory=true, IsShow="PERFORMANCE_NPV_LINKS==true", Enum="10,20,50,All", DisplayName="Show Top", Description="Select number of top records to display in the NPV Links report", Section="Performance")
+string PERFORMANCE_NPV_LINKS_TOP
+{
+defaultValue=10;
+};
+
+@(IsMandatory=true, IsShow="PERFORMANCE_NPV_LINKS==true", Enum="off,on", DisplayName="Embed Chart In Report", Description="Enable to embed charts in the NPV Links report", Section="Performance")
+string PERFORMANCE_NPV_LINKS_EMBED_CHARTS
+{
+defaultValue=off;
+};
+
+@(IsMandatory=true, IsShow="PERFORMANCE_NPV_LINKS_EMBED_CHARTS==on", Enum="off,on", DisplayName="Use Fix Value Range For Charts", Description="Enable to have a fixed value range for embedded charts in the NPV Links report", Section="Performance")
+string PERFORMANCE_NPV_LINKS_FIX_VALUE_RANGE_CHARTS
+{
+defaultValue=off;
+};
+
+@(IsMandatory=false, IsShow="PERFORMANCE_NPV_LINKS_EMBED_CHARTS==on", DisplayName="Y Axis Value Range", Description="Enter the range as X-Y (eg. 10-35) for y axis value range in the NPV Links report", Section="Performance")
+integerRange PERFORMANCE_NPV_LINKS_Y_AXIS_RANGE
+{
+min=0;
+max=50000;
+defaultValue=1-100;
+};
+
+@(IsMandatory=false, IsShow="PERFORMANCE_NPV_LINKS_EMBED_CHARTS==on", Enum="B,KB,MB", DisplayName="Y Axis Value Metric", Description="Pick the metric for y axis values in the NPV Links report (B/KB/MB)", Section="Performance")
+string PERFORMANCE_NPV_LINKS_Y_AXIS_METRIC
+{
+defaultValue=MB;
+};
+
+# PERFORMANCE-SWITCH_BANDWIDTH
+@(IsMandatory=true, IsShow="ADD_PERFORMANCE==true", DisplayName="SWITCH BANDWIDTH", Description="Enable to add Switch Bandwidth report", Section="Performance")
+boolean PERFORMANCE_SWITCH_BANDWIDTH
+{
+defaultValue=false;
+};
+
+@(IsMandatory=true, IsShow="PERFORMANCE_SWITCH_BANDWIDTH==true", Enum="10,20,50,All", DisplayName="Show Top", Description="Select number of top records to display in the Switch Bandwidth report", Section="Performance")
+string PERFORMANCE_SWITCH_BANDWIDTH_TOP
+{
+defaultValue=10;
+};
+
+# PERFORMANCE-ETHERNET
+@(IsMandatory=true, IsShow="ADD_PERFORMANCE==true", DisplayName="ETHERNET", Description="Enable to add Ethernet report", Section="Performance")
+boolean PERFORMANCE_ETHERNET
+{
+defaultValue=false;
+};
+
+@(IsMandatory=true, IsShow="PERFORMANCE_ETHERNET==true", Enum="10,20,50,All", DisplayName="Show Top", Description="Select number of top records to display in the Ethernet report", Section="Performance")
+string PERFORMANCE_ETHERNET_TOP
+{
+defaultValue=10;
+};
+
+@(IsMandatory=true, IsShow="PERFORMANCE_ETHERNET==true", Enum="off,on", DisplayName="Embed Chart In Report", Description="Enable to embed charts in the Ethernet report", Section="Performance")
+string PERFORMANCE_ETHERNET_EMBED_CHARTS
+{
+defaultValue=off;
+};
+
+@(IsMandatory=true, IsShow="PERFORMANCE_ETHERNET_EMBED_CHARTS==on", Enum="off,on", DisplayName="Use Fix Value Range For Charts", Description="Enable to have fixed value range for embedded charts in the Ethernet report", Section="Performance")
+string PERFORMANCE_ETHERNET_FIX_VALUE_RANGE_CHARTS
+{
+defaultValue=off;
+};
+
+@(IsMandatory=false, IsShow="PERFORMANCE_ETHERNET_EMBED_CHARTS==on", DisplayName="Y Axis Value Range", Description="Enter the range as X-Y (eg. 10-35) for y axis value range in the Ethernet report", Section="Performance")
+integerRange PERFORMANCE_ETHERNET_Y_AXIS_RANGE
+{
+min=0;
+max=50000;
+defaultValue=1-100;
+};
+
+@(IsMandatory=false, IsShow="PERFORMANCE_ETHERNET_EMBED_CHARTS==on", Enum="B,KB,MB", DisplayName="Y Axis Value Metric", Description="Pick the metric for y axis values in the Ethernet report (B/KB/MB)", Section="Performance")
+string PERFORMANCE_ETHERNET_Y_AXIS_METRIC
+{
+defaultValue=MB;
+};
+
+# PERFORMANCE-PREDICTION
+@(IsMandatory=true, IsShow="ADD_PERFORMANCE==true", DisplayName="PREDICTION", Description="Enable to add Prediction report", Section="Performance")
+boolean PERFORMANCE_PREDICTION
+{
+defaultValue=false;
+};
+
+@(IsMandatory=true, IsShow="PERFORMANCE_PREDICTION==true", Enum="10,20,50,All", DisplayName="Show Top", Description="Select number of top records to display in the Prediction report", Section="Performance")
+string PERFORMANCE_PREDICTION_TOP
+{
+defaultValue=10;
+};
+
+# HEALTH
+@(IsMandatory=true, DisplayName="HEALTH", Description="Enable to add health reports", Section="Health")
+boolean ADD_HEALTH
+{
+defaultValue=false;
+};
+
+# HEALTH-SUMMARY
+@(IsMandatory=true, IsShow="ADD_HEALTH==true", DisplayName="SUMMARY", Description="Enable to add health Summary report", Section="Health")
+boolean HEALTH_SUMMARY
+{
+defaultValue=false;
+};
+
+# HEALTH-FABRIC_EVENTS
+@(IsMandatory=true, IsShow="ADD_HEALTH==true", DisplayName="FABRIC EVENTS", Description="Enable to add Fabric Events report", Section="Health")
+boolean HEALTH_FABRIC_EVENTS
+{
+defaultValue=false;
+};
+
+# HEALTH-MULTI_PATH
+@(IsMandatory=true, IsShow="ADD_HEALTH==true", DisplayName="MULTI-PATH", Description="Enable to add Multi-Path report", Section="Health")
+boolean HEALTH_MULTI_PATH
+{
+defaultValue=false;
+};
+
+# HEALTH-HOST2STORAGE
+@(IsMandatory=true, IsShow="ADD_HEALTH==true", DisplayName="HOST TO STORAGE CONNECTIVITY", Description="Enable to add Host to Storage Connectivity report", Section="Health")
+boolean HEALTH_HOST2STORAGE
+{
+defaultValue=false;
+};
+
+# HEALTH-STORAGE2HOST
+@(IsMandatory=true, IsShow="ADD_HEALTH==true", DisplayName="STORAGE TO HOST CONNECTIVITY", Description="Enable to add Storage To Host Connectivity report", Section="Health")
+boolean HEALTH_STORAGE2HOST
+{
+defaultValue=false;
+};
+
+# HEALTH-ZONE_ALIAS
+@(IsMandatory=true, IsShow="ADD_HEALTH==true", DisplayName="ZONE AND ALIAS DISCREPANCY", Description="Enable to add Zone And Alias Discrepancy report", Section="Health")
+boolean HEALTH_ZONE_ALIAS
+{
+defaultValue=false;
+};
+
+# HEALTH-SWITCH
+@(IsMandatory=true, IsShow="ADD_HEALTH==true", DisplayName="SWITCH HEALTH", Description="Enable to add Switch Health report", Section="Health")
+boolean HEALTH_SWITCH
+{
+defaultValue=false;
+};
+
+##
+##template content
+from reportlib.preport import *
+import reportlib.rest_util as rest_util
+from reportlib.san.SanUtil import SanUtil
+from reportlib.san.CustomReport import CustomReport
+from datetime import datetime
+import traceback
+from collections import OrderedDict
+import json  # <-- necessário para CPU/Mem
+
+from com.cisco.dcbu.vinci.rest.services.jython import Wrapper
+from com.cisco.dcbu.vinci.rest.services.jython import WrappersResp
+
+tables_json = SanUtil.getTableJson()
+
+# ------- CPU/MEM (SAN) helpers - para TODOS os switches (sem seleção) -------
+navId = "-1"
+
+def _get_cpu_data():
+    pm_service = Wrapper.getEnv("DCNM_PM_WORKER_SVC")
+    resp = rest_util.get(
+        "https://{}/stat/cpuStatES".format(pm_service),
+        "interval=Day",
+        "navId="+navId
+    )
+    return json.loads(resp)
+
+def _get_memory_data():
+    pm_service = Wrapper.getEnv("DCNM_PM_WORKER_SVC")
+    resp = rest_util.get(
+        "https://{}/stat/memoryStatES".format(pm_service),
+        "interval=Day",
+        "navId="+navId
+    )
+    return json.loads(resp)
+
+def add_cpu_mem_sections(preport):
+    """
+    Adiciona tabelas de CPU/Memória para TODOS os SAN switches
+    e cria uma tabela 'Execution Status (CPU/Mem)' para garantir visibilidade.
+    """
+    summary = preport.add_summary()
+    status_tbl = summary.add_table("Execution Status (CPU/Mem)", "status_cpu_mem")
+    cpu_tbl    = summary.add_table("CPU (%) - Last Day", "san_cpu_table")
+    mem_tbl    = summary.add_table("Memory (%) - Last Day", "san_mem_table")
+
+    filled_any = False
+    try:
+        cpu_rows = sorted(_get_cpu_data() or [], key=lambda i: i.get('lastDayMaxRx', 0), reverse=True)
+        for row in cpu_rows:
+            entry = OrderedDict()
+            entry["fabricName"]   = str(row.get("fabric", ""))
+            entry["switchName"]   = str(row.get("entityName", ""))
+            entry["ipAddress"]    = str(row.get("swIpAddress", ""))
+            entry["Average %"]    = str(row.get("avgRxStr", ""))
+            entry["Peak %"]       = str(row.get("maxRxStr", ""))
+            entry["Last Updated"] = str(row.get("lastUpdateTimeStr", ""))
+            key = "{}-{}".format(entry["fabricName"], entry["switchName"])
+            cpu_tbl.append(entry, key)
+            filled_any = True
+    except Exception as e:
+        status_tbl.append({"CPU Error": str(e)}, "cpu_err")
+
+    try:
+        mem_rows = sorted(_get_memory_data() or [], key=lambda i: i.get('lastDayMaxRx', 0), reverse=True)
+        for row in mem_rows:
+            entry = OrderedDict()
+            entry["fabricName"]   = str(row.get("fabric", ""))
+            entry["switchName"]   = str(row.get("entityName", ""))
+            entry["ipAddress"]    = str(row.get("swIpAddress", ""))
+            entry["Average %"]    = str(row.get("avgRxStr", ""))
+            entry["Peak %"]       = str(row.get("maxRxStr", ""))
+            entry["Last Updated"] = str(row.get("lastUpdateTimeStr", ""))
+            key = "{}-{}".format(entry["fabricName"], entry["switchName"])
+            mem_tbl.append(entry, key)
+            filled_any = True
+    except Exception as e:
+        status_tbl.append({"Memory Error": str(e)}, "mem_err")
+
+    if filled_any:
+        status_tbl.append({"Result": "CPU/Memory tables added"}, "status")
+    else:
+        status_tbl.append({"Result": "Executed (no data from PM Worker cpuStatES/memoryStatES)"}, "status")
+# ---------------------------------------------------------------------------
+
+def generateReport(context):
+    try:
+        preport = Report("SAN User Defined - " + template_name)
+        respObj = WrappersResp.getRespObj()
+
+        resp = SanUtil.getCustomReportObjectUserDefined(template_name)
+
+        # temp summary
+        summary = preport.add_summary()
+        summary["Template"] = template_name
+
+        groups = resp.get_report_groups()
+        Logger.info("Number of groups: " + str(len(groups)))
+        _id = 0
+        for group in groups:
+            category = group.get_name() # giving some random param but this needs to be removed from CustomReport
+            reports = group.get_reports()
+            Logger.info("Number of reports: " + str(len(reports)))
+            for report in reports:
+                # check for other types later - for now focus on table
+                if report.reportType == CustomReport.TYPE_TABLE:
+                  try:
+                    generate_table_new(preport, report, category, _id)
+                  except (KeyError, IndexError):
+                    generate_table(preport, report, _id)
+                  _id += 1
+
+                if report.get_details() is not None:
+                    details = report.get_details()
+                    for detail in details:
+                        if detail is not None:
+                          try:
+                            generate_table_new(preport, detail, category, _id) # _id needs to be updated
+                          except (KeyError, IndexError):
+                            generate_table(preport, detail, _id)
+                          _id += 1
+
+        # >>> CPU/Mem para TODOS os SAN switches (sem seleção)
+        add_cpu_mem_sections(preport)
+
+    except Exception as e:
+        Logger.error("Report failed: Exception has occured while generating SAN report: " + str(traceback.format_exc()))
+        respObj.setFailureRetCode()
+        respObj.addErrorReport('User-defined', "Unexpected error occurred. Please check all the services are running and try again.")
+        respObj.setValue(preport)
+        return respObj
+
+    Logger.info("Generating report done!")
+
+    respObj.setSuccessRetCode()
+    respObj.setValue(preport)
+    return respObj
+
+def getTableWiseInfo(table_config, category):
+    table_col_map = {}
+    for table in table_config[category].keys():
+        table_col_map[table] = {col["index"]: col["property"] for col in table_config[category][table]["columns"]}
+
+    return table_col_map
+
+def get_headers_new(name, category):
+    all_table_names = tables_json[category].keys()
+    table_name = [x for x in all_table_names if str(name) == str(x)][0]
+    Logger.info("For report table titled {} from category {}, the obtained table name from metadata is: {}".format(name, category, table_name))
+
+    columns_list = tables_json[category][table_name]["columns"]
+    num_of_columns = len(columns_list)
+    header_list = [None] * num_of_columns
+    for column in columns_list:
+      header_list[column["index"]] = (column["property"],column["displayVal"])
+
+    Logger.info("For report table titled {} from category {}, the obtained column header map list is: " + str(header_list))
+    return header_list
+
+def generate_table_new(report, detail, category, _id):
+    data_list = detail.get_data_list()
+    headers = get_headers_new(detail.get_name(), category)
+
+    section = report.add_section("{}".format(detail.name), "{}:{}".format(detail.name, _id)) # need to define a proper id
+    if len(data_list) > 0:
+        _id1 = 0
+        _id2 = 0
+        for data in data_list:
+            section_data = OrderedDict()
+            for prop, header in headers:
+                section_data[header] = data[prop]
+
+            section.append(detail.name, section_data, '{}-{}'.format(_id1, _id2)) # need to define a proper id
+
+            # generate charts
+            if "rrdFile" in data and "pmtype" in data:
+              pm_svc = Wrapper.getEnv("DCNM_PM_WORKER_SVC")
+              temp = {}
+              temp["Switch"] = str(data["entityName"])
+              temp["Interface"] = str(data["swIfName"])
+              temp["dbId"] = str(data["dbId"])
+              generate_pm_chart(section, pm_svc, data["rrdFile"], data["pmtype"], temp)
+
+            _id1 += 1
+            _id2 += 1
+
+def generate_pm_chart(section, svc, rrdFile, pmType, temp):
+    if rrdFile is not None:
+      chart_data = rest_util.get("https://{}/stat/pmChartData".format(svc), "rrdFile={}".format(rrdFile), "pmType={}".format(pmType))
+      data = json.loads(chart_data)
+      if data:
+        bar_chart = section.add_chart(ChartTypes.LINE_CHART, "{}-{}-{}".format(temp["Switch"], temp["Interface"], temp["dbId"]))
+        bar_chart.set_title('PM Chart')
+        bar_chart.set_xAxis_title("Time")
+        bar_chart.set_yAxis_title("Bytes/Sec")
+
+        print_chart(bar_chart,"{}-{}-Rx".format(temp["Switch"], temp["Interface"]), data, "Rx")
+        print_chart(bar_chart,"{}-{}-Tx".format(temp["Switch"], temp["Interface"]), data, "Tx")
+
+        Logger.info("Generated chart for rrdFile: {}, pmType: {}".format(rrdFile, pmType))
+      else:
+        Logger.info("Data for chart with rrdFile: {}, pmType: {} is EMPTY!".format(rrdFile, pmType))
+
+def print_chart(chart, series, data, ind):
+    dataObj = None
+
+    for obj in data:
+      if 'data' in obj and obj["name"] == ind:
+        dataObj = obj["data"];
+
+    if dataObj:
+      for datum in dataObj:
+        timest = (datetime.fromtimestamp(datum[0]/1000)).strftime("%H:%M")
+        chart.add_value(series, datum[1], timest)
+
+def get_headers(columns):
+    header_map = {}
+    for column in columns:
+        if str(column["property"]) != "index": # case where "name" for "property" = index is an empty string
+            header_map[str(column["name"])] = str(column["property"])
+
+    return header_map
+
+def generate_table(report, detail, _id):
+    data_list = detail.get_data_list()
+    headers = get_headers(detail.get_columns())
+
+    section = report.add_section("{}".format(detail.name), "{}:{}".format(detail.name, _id)) # need to define a proper id
+    if len(data_list) > 0:
+        _id1 = 0
+        _id2 = 0
+        for data in data_list:
+            section_data = {}
+            for header, prop in headers.items():
+                section_data[header] = data[prop]
+
+            section.append(detail.name, section_data, '{}-{}'.format(_id1, _id2)) # need to define a proper id
+
+            # generate charts
+            if (("End Devices" in detail.name and PERFORMANCE_END_DEVICES == "true" and PERFORMANCE_END_DEVICES_EMBED_CHARTS == "on") or
+                ("ISL" in detail.name and PERFORMANCE_ISL == "true" and PERFORMANCE_ISL_EMBED_CHARTS == "on") or
+                ("NPV Links" in detail.name and PERFORMANCE_NPV_LINKS == "true" and PERFORMANCE_NPV_LINKS_EMBED_CHARTS == "on") or
+                ("Ethernet" in detail.name and PERFORMANCE_ETHERNET == "true" and PERFORMANCE_ETHERNET_EMBED_CHARTS == "on")):
+                if "rrdFile" in data and "pmtype" in data:
+                    pm_svc = Wrapper.getEnv("DCNM_PM_WORKER_SVC")
+                    temp = {}
+                    temp["Switch"] = str(data["entityName"])
+                    temp["Interface"] = str(data["swIfName"])
+                    temp["dbId"] = str(data["dbId"])
+                    generate_pm_chart(section, pm_svc, data["rrdFile"], data["pmtype"], temp)
+            _id1 += 1
+            _id2 += 1
+##
