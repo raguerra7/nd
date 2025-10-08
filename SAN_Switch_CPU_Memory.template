@@ -1,0 +1,112 @@
+##template properties
+name = SAN_Switch_CPU_Memory_Min;
+description = ;
+tags = device;
+userDefined = true;
+supportedPlatforms = All;
+templateType = REPORT;
+templateSubType = GENERIC;
+contentType = PYTHON;
+implements = implements;
+dependencies = ;
+published = false;
+imports = ;
+##
+##template variables
+@(IsInternal=true)
+string serial_number;
+##
+##template content
+
+from collections import OrderedDict
+from reportlib.preport import *
+import reportlib.rest_util as rest_util
+import json
+
+from com.cisco.dcbu.vinci.rest.services.jython import WrappersResp
+from com.cisco.dcbu.vinci.rest.services.jython import Wrapper
+from com.cisco.dcbu.vinci.rest.services.jython import InventoryWrapper
+
+# Escopo SAN
+navId = "-1"
+
+def generateReport(context):
+    respObj = WrappersResp.getRespObj()
+    try:
+        Logger.info("SAN CPU/Memory Minimal Report - start")
+        report = Report("SAN CPU/Memory (Minimal)")
+        summary = report.add_summary()
+
+        dbid = get_dbid_san(serial_number)
+        Logger.info("SAN Switch DB Id: {}".format(dbid))
+
+        # Tabelas no resumo
+        cpu_table = summary.add_table("CPU (%) - Last Day", "san_cpu_table")
+        mem_table = summary.add_table("Memory (%) - Last Day", "san_mem_table")
+
+        # CPU
+        for row in sorted(get_cpu_data(), key=lambda i: i.get('lastDayMaxRx', 0), reverse=True):
+            if dbid != str(row.get("switchDbId", "")):
+                continue
+            entry = OrderedDict()
+            entry["fabricName"]   = str(row.get("fabric", ""))
+            entry["switchName"]   = str(row.get("entityName", ""))
+            entry["ipAddress"]    = str(row.get("swIpAddress", ""))
+            entry["Average %"]    = str(row.get("avgRxStr", ""))
+            entry["Peak %"]       = str(row.get("maxRxStr", ""))
+            entry["Last Updated"] = str(row.get("lastUpdateTimeStr", ""))
+            key = "{}-{}".format(entry["fabricName"], entry["switchName"])
+            cpu_table.append(entry, key)
+
+        # Memory
+        for row in sorted(get_memory_data(), key=lambda i: i.get('lastDayMaxRx', 0), reverse=True):
+            if dbid != str(row.get("switchDbId", "")):
+                continue
+            entry = OrderedDict()
+            entry["fabricName"]   = str(row.get("fabric", ""))
+            entry["switchName"]   = str(row.get("entityName", ""))
+            entry["ipAddress"]    = str(row.get("swIpAddress", ""))
+            entry["Average %"]    = str(row.get("avgRxStr", ""))
+            entry["Peak %"]       = str(row.get("maxRxStr", ""))
+            entry["Last Updated"] = str(row.get("lastUpdateTimeStr", ""))
+            key = "{}-{}".format(entry["fabricName"], entry["switchName"])
+            mem_table.append(entry, key)
+
+        Logger.info("SAN CPU/Memory Minimal Report - complete")
+        respObj.setSuccessRetCode()
+        respObj.setValue(report)
+        return respObj
+
+    except Exception as e:
+        Logger.error("SAN CPU/Memory Minimal Report failed: " + str(e))
+        respObj.setFailureRetCode()
+        try:
+            respObj.addErrorReport('SAN-CPU-MEM-Min', "Unexpected error. Check services and try again.")
+            respObj.setValue(report)
+        except:
+            pass
+        return respObj
+
+# ---------- Helpers ----------
+def get_dbid_san(serial_number):
+    # Mapeia o DBID do switch SAN
+    return str(InventoryWrapper.getSanSwitchDbId(serial_number))
+
+def get_cpu_data():
+    pm_service = Wrapper.getEnv("DCNM_PM_WORKER_SVC")
+    resp = rest_util.get(
+        "https://{}/stat/cpuStatES".format(pm_service),
+        "interval=Day",
+        "navId="+navId
+    )
+    return json.loads(resp)
+
+def get_memory_data():
+    pm_service = Wrapper.getEnv("DCNM_PM_WORKER_SVC")
+    resp = rest_util.get(
+        "https://{}/stat/memoryStatES".format(pm_service),
+        "interval=Day",
+        "navId="+navId
+    )
+    return json.loads(resp)
+##
