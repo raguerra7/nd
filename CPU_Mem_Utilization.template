@@ -133,3 +133,4 @@ Se quiser, eu adapto para:
 - aceitar **limiares** como variáveis (ex.: `cpu_threshold`, `mem_threshold`);  
 - usar `| xml` e o parser XML do SDK (se a versão do NX-OS retornar em XML).
 ::contentReference[oaicite:8]{index=8}
+##
