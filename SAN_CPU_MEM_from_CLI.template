@@ -1,0 +1,127 @@
+##template properties
+name =SAN_CPU_MEM_from_CLI;
+description = Collect CPU/Memory via "show system resources" (ND 4.1);
+tags =device;
+userDefined = true;
+supportedPlatforms = All;
+templateType = REPORT;
+templateSubType = GENERIC;
+contentType = PYTHON;
+implements = ;
+dependencies = ;
+published = false;
+imports = ;
+##
+##template variables
+@(IsMandatory=true, DisplayName="Include CPU Utilization", Section="Options")
+boolean CPU_INCLUDED { defaultValue=true; };
+
+@(IsMandatory=true, DisplayName="Include Memory Utilization", Section="Options")
+boolean MEM_INCLUDED { defaultValue=true; };
+##
+##template content
+from reportlib.preport import *
+from reportlib.preport import show_and_store
+import re, traceback
+from collections import OrderedDict
+
+from com.cisco.dcbu.vinci.rest.services.jython import WrappersResp
+
+# Regex bem tolerantes para NX-OS/MDS
+CPU_RE = re.compile(r'CPU\s+states\s*:.*?([\d.]+)%\s*user,.*?([\d.]+)%\s*kernel,.*?([\d.]+)%\s*idle', re.IGNORECASE)
+MEM_RE = re.compile(r'Memory\s+usage\s*:\s*([\d]+)K\s*total,\s*([\d]+)K\s*used,\s*([\d]+)K\s*free', re.IGNORECASE)
+
+def _to_float(x):
+    try: return float(x)
+    except: return None
+
+def _parse_cpu_mem(txt):
+    cpu_used = None
+    mem_used = None
+
+    # CPU = 100 - idle
+    m = CPU_RE.search(txt or "")
+    if m:
+        idle = _to_float(m.group(3))
+        if idle is not None:
+            cpu_used = round(max(0.0, 100.0 - idle), 2)
+
+    # Mem% = used/total * 100
+    m = MEM_RE.search(txt or "")
+    if m:
+        total = _to_float(m.group(1))
+        used  = _to_float(m.group(2))
+        if total and total > 0:
+            mem_used = round((used / total) * 100.0, 2)
+
+    return cpu_used, mem_used
+
+def _bool(v):
+    if isinstance(v, bool): return v
+    return str(v).strip().lower() == "true"
+
+def generateReport(context):
+    resp = WrappersResp.getRespObj()
+    report = Report('CPU/Mem from "show system resources"')
+
+    try:
+        summary = report.add_summary()
+        status  = summary.add_table("Execution Status", "status")
+
+        cpu_on = _bool(CPU_INCLUDED)
+        mem_on = _bool(MEM_INCLUDED)
+
+        # Executa CLI nos dispositivos selecionados no wizard (Scope = Device)
+        # Passando None, o NDFC usa a seleção feita na criação do Report
+        results = show_and_store(report, None, "show system resources")
+
+        # Tabela final
+        tbl = summary.add_table("CPU/Mem (%) por Dispositivo", "cpu_mem_table")
+
+        # (Opcional) gráfico de barras de CPU
+        cpu_chart = None
+        if cpu_on:
+            cpu_chart = summary.add_chart(ChartTypes.BAR_CHART, "cpu_bar")
+            cpu_chart.set_title("CPU Used (%)")
+            cpu_chart.set_xAxis_title("Device")
+            cpu_chart.set_yAxis_title("%")
+
+        added = 0
+        for r in results or []:
+            sn     = r.get("serial_number", "unknown")
+            status_str = r.get("status", "failed")
+            out    = (r.get("response") or "").strip()
+
+            if status_str != "success" or not out:
+                tbl.append({"Serial": sn, "CPU_used_%": None, "Mem_used_%": None}, sn)
+                continue
+
+            cpu_used, mem_used = _parse_cpu_mem(out)
+
+            rec = OrderedDict()
+            rec["Serial"] = sn
+            if cpu_on: rec["CPU_used_%"] = cpu_used
+            if mem_on: rec["Mem_used_%"] = mem_used
+            tbl.append(rec, sn)
+
+            if cpu_chart and (cpu_used is not None):
+                # Usa o serial como categoria no eixo X
+                cpu_chart.add_value(sn, cpu_used, sn)
+
+            added += 1
+
+        status.append({"CLI": "show system resources", "Devices processed": str(added)}, "res")
+
+        resp.setSuccessRetCode()
+        resp.setValue(report)
+        return resp
+
+    except Exception as e:
+        # Garante que algo apareça em Reports
+        s = report.add_summary()
+        t = s.add_table("Execution Status (Error)", "err")
+        t.append({"Error": str(e), "Trace": traceback.format_exc()[:900]}, "e")
+        resp.setSuccessRetCode()
+        resp.setValue(report)
+        return resp
+##
