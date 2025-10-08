@@ -1,0 +1,163 @@
+##template properties
+name = Switch_CPU_Memory_Report;
+description = ;
+tags = device;
+userDefined = true;
+supportedPlatforms = All;
+templateType = REPORT;
+templateSubType = GENERIC;
+contentType = PYTHON;
+implements = implements;
+dependencies = ;
+published = false;
+imports = ;
+##
+##template variables
+@(IsInternal=true)
+string serial_number;
+##
+##template content
+
+from collections import OrderedDict
+from datetime import datetime
+from reportlib.preport import *
+import reportlib.rest_util as rest_util
+import json
+
+from com.cisco.dcbu.vinci.rest.services.jython import WrappersResp
+from com.cisco.dcbu.vinci.rest.services.jython import Wrapper
+from com.cisco.dcbu.vinci.rest.services.jython import InventoryWrapper
+
+# Escopo (mantido como no seu)
+navId = "-1"
+
+def generateReport(context):
+    respObj = WrappersResp.getRespObj()
+    try:
+        Logger.info("CPU/Memory Report Started")
+        report = Report("CPU/Memory Report")
+        summary = report.add_summary()
+
+        dbid = get_dbid(serial_number)
+        Logger.info("Switch DB Id: {}".format(dbid))
+
+        # Seções de detalhes
+        cpu_info = report.add_section("CPU", "cpu-section")
+        mem_info = report.add_section("Memory", "memory-section")
+
+        # Charts no resumo
+        cpu_chart = summary.add_chart(ChartTypes.LINE_CHART, 'line-cpu')
+        cpu_chart.set_title('CPU Usage (Last Day)')
+        cpu_chart.set_xAxis_title("Time")
+        cpu_chart.set_yAxis_title("%")
+
+        mem_chart = summary.add_chart(ChartTypes.LINE_CHART, 'line-memory')
+        mem_chart.set_title('Memory Usage (Last Day)')
+        mem_chart.set_xAxis_title("Time")
+        mem_chart.set_yAxis_title("%")
+
+        # CPU
+        cpu_rows = sorted(get_cpu_data(), key=lambda i: i.get('lastDayMaxRx', 0), reverse=True)
+        _append_switch_rows_and_chart(cpu_rows, dbid, cpu_info, cpu_chart, value_key="Value")
+
+        # Memory
+        mem_rows = sorted(get_memory_data(), key=lambda i: i.get('lastDayMaxRx', 0), reverse=True)
+        _append_switch_rows_and_chart(mem_rows, dbid, mem_info, mem_chart, value_key="Value")
+
+        Logger.info("CPU/Memory Report Complete")
+        respObj.setSuccessRetCode()
+        respObj.setValue(report)
+        return respObj
+
+    except Exception as e:
+        Logger.error("CPU/Memory Report failed: " + str(e))
+        respObj.setFailureRetCode()
+        try:
+            respObj.addErrorReport('Switch-CPU-Memory', "Unexpected error. Check services and try again.")
+            respObj.setValue(report)
+        except:
+            pass
+        return respObj
+
+
+# ---------- Helpers ----------
+def get_dbid(serial_number):
+    return str(InventoryWrapper.getLanSwitchDbId(serial_number))
+
+def get_chart(rrdFile, pmType):
+    pm_service = Wrapper.getEnv("DCNM_PM_WORKER_SVC")
+    resp = rest_util.get(
+        "https://{}/stat/pmChartData".format(pm_service),
+        "rrdFile={}".format(rrdFile),
+        "pmType={}".format(pmType),
+        "fid=10",
+        "interval=1",
+        "navId=-1"
+    )
+    return json.loads(resp)
+
+def get_cpu_data():
+    pm_service = Wrapper.getEnv("DCNM_PM_WORKER_SVC")
+    resp = rest_util.get(
+        "https://{}/stat/cpuStatES".format(pm_service),
+        "interval=Day",
+        "navId="+navId
+    )
+    return json.loads(resp)
+
+def get_memory_data():
+    pm_service = Wrapper.getEnv("DCNM_PM_WORKER_SVC")
+    resp = rest_util.get(
+        "https://{}/stat/memoryStatES".format(pm_service),
+        "interval=Day",
+        "navId="+navId
+    )
+    return json.loads(resp)
+
+def _append_switch_rows_and_chart(rows, dbid, section, chart, value_key="Value"):
+    """
+    Para cada linha do switch (matching DBID):
+      - Adiciona linha de detalhes (Average %, Peak %, Last Updated)
+      - Desenha série no gráfico do resumo (linha)
+    """
+    unique_id = 0
+    for row in rows:
+        if dbid != str(row.get("switchDbId", "")):
+            continue
+
+        unique_id += 1
+        temp = OrderedDict()
+        temp["fabricName"]  = str(row.get("fabric", ""))
+        temp["switchName"]  = str(row.get("entityName", ""))
+        temp["ipAddress"]   = str(row.get("swIpAddress", ""))
+        temp["Average %"]   = str(row.get("avgRxStr", ""))
+        temp["Peak %"]      = str(row.get("maxRxStr", ""))
+        temp["Last Updated"]= str(row.get("lastUpdateTimeStr", ""))
+        section.append(section.get('title', 'Details'), temp, "{}-{}-{}".format(temp["fabricName"], temp["switchName"], unique_id))
+
+        rrd = row.get("rrdFile")
+        pmtype = row.get("pmtype")
+        if rrd and str(rrd) != "None":
+            data = get_chart(str(rrd), str(pmtype))
+            _plot_series(chart, temp["switchName"], data, value_key)
+
+def _plot_series(chart, series_name, data, ind_key):
+    """
+    data = [{"name": "...", "data": [[ts(ms), value], ...]}, ...]
+    Seleciona o objeto cujo name == ind_key (ex.: "Value") e plota a série.
+    """
+    dataObj = None
+    for obj in data:
+        if 'data' in obj and obj.get("name") == ind_key:
+            dataObj = obj["data"]
+            break
+    if not dataObj:
+        Logger.info("No chart data for series {}".format(series_name))
+        return
+
+    for ts_ms, val in dataObj:
+        try:
+            timest = (datetime.fromtimestamp(ts_ms/1000)).strftime("%H:%M")
+            chart.add_value(series_name, val, timest)
+        except Exception as e:
+            Logger.info("Chart point error: {}".format(str(e)))
