@@ -1,0 +1,56 @@
+##template properties
+name =User_Defined;
+description = User-defined report CPU and Mem;
+tags =san-userdefined;
+userDefined = true;
+supportedPlatforms = All;
+templateType = REPORT;
+templateSubType = GENERIC;
+contentType = PYTHON;
+implements = ;
+dependencies = ;
+published = false;
+imports = ;
+##
+##template variables
+@(IsInternal=true)
+string template_name;
+
+# INVENTORY
+@(IsMandatory=true, DisplayName="INVENTORY", Description="Enable to add inventory reports", Section="Inventory")
+boolean ADD_INVENTORY
+{
+defaultValue=false;
+};
+
+# INVENTORY-SUMMARY
+@(IsMandatory=true, IsShow="ADD_INVENTORY==true", DisplayName="SUMMARY", Description="Enable to add inventory Summary report", Section="Inventory")
+boolean INVENTORY_SUMMARY
+{
+defaultValue=false;
+};
+
+@(IsMandatory=true, IsShow="INVENTORY_SUMMARY==true", Enum="off,on", DisplayName="Include summary details", Description="Enable to include inventory Summary details", Section="Inventory")
+string INVENTORY_SUMMARY_INCLUDE_DETAILS
+{
+defaultValue=off;
+};
+
+# INVENTORY-VSANs
+@(IsMandatory=true, IsShow="ADD_INVENTORY==true", DisplayName="VSANs", Description="Enable to add VSAN report", Section="Inventory")
+boolean INVENTORY_VSAN
+{
+defaultValue=false;
+};
+
+@(IsMandatory=true, IsShow="INVENTORY_VSAN==true", Enum="All,Warning", DisplayName="VSAN status", Description="Select status for VSAN", Section="Inventory")
+string INVENTORY_VSAN_STATUS
+{
+defaultValue=All;
+};
+
+# INVENTORY-SWITCHES
+@(IsMandatory=true, IsShow="ADD_INVENTORY==true", DisplayName="SWITCHES", Description="Enable to add Switches report", Section="Inventory")
+boolean INVENTORY_SWITCHES
+{
+defaultValue=fals
