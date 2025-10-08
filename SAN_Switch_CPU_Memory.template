@@ -31,23 +31,36 @@ from com.cisco.dcbu.vinci.rest.services.jython import InventoryWrapper
 navId = "-1"
 
 def generateReport(context):
+    # cria o report e um "status_table" para garantir visibilidade em Reports
     respObj = WrappersResp.getRespObj()
+    report = Report("SAN CPU/Memory (Minimal)")
+    summary = report.add_summary()
+    status_table = summary.add_table("Execution Status", "status_table")
+
+    # tabelas principais
+    cpu_table = summary.add_table("CPU (%) - Last Day", "san_cpu_table")
+    mem_table = summary.add_table("Memory (%) - Last Day", "san_mem_table")
+
     try:
         Logger.info("SAN CPU/Memory Minimal Report - start")
-        report = Report("SAN CPU/Memory (Minimal)")
-        summary = report.add_summary()
 
         dbid = get_dbid_san(serial_number)
         Logger.info("SAN Switch DB Id: {}".format(dbid))
 
-        # Tabelas no resumo
-        cpu_table = summary.add_table("CPU (%) - Last Day", "san_cpu_table")
-        mem_table = summary.add_table("Memory (%) - Last Day", "san_mem_table")
+        # coleta
+        cpu_rows = get_cpu_data() or []
+        mem_rows = get_memory_data() or []
+
+        # flags p/ status
+        filled_any = False
+        matched_cpu = False
+        matched_mem = False
 
         # CPU
-        for row in sorted(get_cpu_data(), key=lambda i: i.get('lastDayMaxRx', 0), reverse=True):
+        for row in sorted(cpu_rows, key=lambda i: i.get('lastDayMaxRx', 0), reverse=True):
             if dbid != str(row.get("switchDbId", "")):
                 continue
+            matched_cpu = True
             entry = OrderedDict()
             entry["fabricName"]   = str(row.get("fabric", ""))
             entry["switchName"]   = str(row.get("entityName", ""))
@@ -57,11 +70,13 @@ def generateReport(context):
             entry["Last Updated"] = str(row.get("lastUpdateTimeStr", ""))
             key = "{}-{}".format(entry["fabricName"], entry["switchName"])
             cpu_table.append(entry, key)
+            filled_any = True
 
         # Memory
-        for row in sorted(get_memory_data(), key=lambda i: i.get('lastDayMaxRx', 0), reverse=True):
+        for row in sorted(mem_rows, key=lambda i: i.get('lastDayMaxRx', 0), reverse=True):
             if dbid != str(row.get("switchDbId", "")):
                 continue
+            matched_mem = True
             entry = OrderedDict()
             entry["fabricName"]   = str(row.get("fabric", ""))
             entry["switchName"]   = str(row.get("entityName", ""))
@@ -71,20 +86,32 @@ def generateReport(context):
             entry["Last Updated"] = str(row.get("lastUpdateTimeStr", ""))
             key = "{}-{}".format(entry["fabricName"], entry["switchName"])
             mem_table.append(entry, key)
+            filled_any = True
+
+        # Linha de status amigável
+        if not cpu_rows and not mem_rows:
+            status_table.append({"Result": "No data from PM Worker (cpuStatES/memoryStatES)"}, "status")
+        elif not matched_cpu and not matched_mem:
+            status_table.append({"Result": "No rows matched this SAN switch DBID"}, "status")
+        elif filled_any:
+            status_table.append({"Result": "Data collected successfully"}, "status")
+        else:
+            status_table.append({"Result": "Executed but no table rows were added"}, "status")
 
         Logger.info("SAN CPU/Memory Minimal Report - complete")
-        respObj.setSuccessRetCode()
         respObj.setValue(report)
+        respObj.setSuccessRetCode()
         return respObj
 
     except Exception as e:
         Logger.error("SAN CPU/Memory Minimal Report failed: " + str(e))
-        respObj.setFailureRetCode()
+        # garante que algo apareça em Reports mesmo com erro
         try:
-            respObj.addErrorReport('SAN-CPU-MEM-Min', "Unexpected error. Check services and try again.")
-            respObj.setValue(report)
+            status_table.append({"Error": str(e)}, "error")
         except:
             pass
+        respObj.setValue(report)
+        respObj.setFailureRetCode()
         return respObj
 
 # ---------- Helpers ----------
