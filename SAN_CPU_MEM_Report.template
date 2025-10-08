@@ -1,6 +1,6 @@
 ##template properties
 name =SAN_CPU_MEM_Report;
-description = SAN CPU/Memory report (all SAN switches, ND 4.1);
+description = SAN CPU/Memory report (uses appcenter pm/stat APIs, ND 4.1);
 tags =san-userdefined;
 userDefined = true;
 supportedPlatforms = All;
@@ -18,162 +18,104 @@ string template_name;
 
 # CPU/MEM SELECTION
 @(IsMandatory=true, DisplayName="Include CPU Utilization", Description="Include CPU utilization table", Section="CPU/MEM")
-boolean CPU_INCLUDED
-{
-defaultValue=true;
-};
+boolean CPU_INCLUDED { defaultValue=true; };
 
 @(IsMandatory=true, DisplayName="Include Memory Utilization", Description="Include Memory utilization table", Section="CPU/MEM")
-boolean MEM_INCLUDED
-{
-defaultValue=true;
-};
+boolean MEM_INCLUDED { defaultValue=true; };
 ##
 ##template content
 from reportlib.preport import *
 import reportlib.rest_util as rest_util
 from datetime import datetime
-import traceback
 from collections import OrderedDict
-import json
+import json, traceback
 
-from com.cisco.dcbu.vinci.rest.services.jython import Wrapper
 from com.cisco.dcbu.vinci.rest.services.jython import WrappersResp
 
-# ------- CPU/MEM (SAN) helpers - para TODOS os switches (sem seleção) -------
-navId = "-1"
+# --- Constantes dos endpoints (appcenter) ---
+CPU_PATH = "/appcenter/cisco/ndfc/api/v1/pm/stat/cpuStatES"
+MEM_PATH = "/appcenter/cisco/ndfc/api/v1/pm/stat/memoryStatES"
+# parâmetros padrão (iguais aos screens: último dia)
+DEFAULT_Q = ("interval=Day", "navId=-1")
 
-def _pm_base():
-    try:
-        return Wrapper.getEnv("DCNM_PM_WORKER_SVC")
-    except:
-        return None
+def _bool(v):
+    if isinstance(v, bool): return v
+    return str(v).strip().lower() == "true"
 
-def _get_cpu_data():
-    svc = _pm_base()
-    if not svc:
-        raise Exception("Env DCNM_PM_WORKER_SVC not set")
-    resp = rest_util.get(
-        "https://{}/stat/cpuStatES".format(svc),
-        "interval=Day",
-        "navId="+navId
-    )
-    return json.loads(resp), svc
-
-def _get_memory_data():
-    svc = _pm_base()
-    if not svc:
-        raise Exception("Env DCNM_PM_WORKER_SVC not set")
-    resp = rest_util.get(
-        "https://{}/stat/memoryStatES".format(svc),
-        "interval=Day",
-        "navId="+navId
-    )
-    return json.loads(resp), svc
-
-def _str_bool(b):
-    # Em ND templates, boolean pode chegar como "true"/"false" (string) ou bool real
-    if isinstance(b, bool):
-        return b
-    return str(b).strip().lower() == "true"
-
-def add_cpu_mem_sections(preport, cpu_enabled, mem_enabled):
+def _safe_get(url_path, *params):
     """
-    Adiciona tabelas de CPU/Memória para TODOS os SAN switches
-    e cria uma tabela 'Execution Status' para garantir visibilidade.
-    Respeita os toggles CPU_INCLUDED/MEM_INCLUDED.
+    Tenta chamar o endpoint appcenter diretamente. Se o ambiente exigir outra forma,
+    a exceção é registrada no 'Execution Status' do relatório.
     """
-    summary = preport.add_summary()
-    status_tbl = summary.add_table("Execution Status (CPU/Mem)", "status_cpu_mem")
+    return json.loads(rest_util.get(url_path, *params))
 
-    cpu_tbl = None
-    mem_tbl = None
-    filled_any = False
-    pm_url = None
+def _row_norm(row):
+    e = OrderedDict()
+    e["Switch Name"]   = str(row.get("entityName", ""))
+    e["IP Address"]    = str(row.get("swIpAddress", ""))
+    e["Low Value(%)"]  = str(row.get("minRxStr",  row.get("minStr",  "0")))
+    e["Avg. Value(%)"] = str(row.get("avgRxStr",  row.get("avgStr",  "0")))
+    e["High Value(%)"] = str(row.get("maxRxStr",  row.get("maxStr",  "0")))
+    e["Last Updated"]  = str(row.get("lastUpdateTimeStr", ""))
+    return e
+
+def _fill_table(summary, title, rows):
+    tbl = summary.add_table(title, title.replace(" ", "_").lower())
+    for r in rows:
+        e = _row_norm(r)
+        tbl.append(e, "{}-{}".format(e["Switch Name"], e["IP Address"]))
+
+def add_cpu_mem(report, cpu_on, mem_on):
+    summary = report.add_summary()
+    status  = summary.add_table("Execution Status", "status")
+
+    added_any = False
 
     # CPU
-    if cpu_enabled:
+    if cpu_on:
         try:
-            cpu_rows, pm_url = _get_cpu_data()
-            status_tbl.append({"PM Worker URL": str(pm_url)}, "pmurl")
-            status_tbl.append({"cpuStatES count": str(len(cpu_rows))}, "cpu_count")
-            cpu_tbl = summary.add_table("CPU (%) - Last Day", "san_cpu_table")
-            for row in sorted(cpu_rows, key=lambda i: i.get('lastDayMaxRx', 0), reverse=True):
-                entry = OrderedDict()
-                entry["fabricName"]   = str(row.get("fabric", ""))
-                entry["switchName"]   = str(row.get("entityName", ""))
-                entry["ipAddress"]    = str(row.get("swIpAddress", ""))
-                entry["Average %"]    = str(row.get("avgRxStr", ""))
-                entry["Peak %"]       = str(row.get("maxRxStr", ""))
-                entry["Last Updated"] = str(row.get("lastUpdateTimeStr", ""))
-                key = "{}-{}".format(entry["fabricName"], entry["switchName"])
-                cpu_tbl.append(entry, key)
-                filled_any = True
+            cpu_rows = _safe_get(CPU_PATH, *DEFAULT_Q)
+            status.append({"CPU API": CPU_PATH, "Count": str(len(cpu_rows))}, "cpu_api")
+            _fill_table(summary, "CPU (%) - Last Day", sorted(cpu_rows, key=lambda i: i.get('lastDayMaxRx', 0), reverse=True))
+            added_any = True
         except Exception as e:
-            status_tbl.append({"CPU Error": str(e)}, "cpu_err")
+            status.append({"CPU Error": str(e)}, "cpu_err")
 
     # Memory
-    if mem_enabled:
+    if mem_on:
         try:
-            mem_rows, pm_url2 = _get_memory_data()
-            if not pm_url and pm_url2:
-                status_tbl.append({"PM Worker URL": str(pm_url2)}, "pmurl2")
-            status_tbl.append({"memoryStatES count": str(len(mem_rows))}, "mem_count")
-            mem_tbl = summary.add_table("Memory (%) - Last Day", "san_mem_table")
-            for row in sorted(mem_rows, key=lambda i: i.get('lastDayMaxRx', 0), reverse=True):
-                entry = OrderedDict()
-                entry["fabricName"]   = str(row.get("fabric", ""))
-                entry["switchName"]   = str(row.get("entityName", ""))
-                entry["ipAddress"]    = str(row.get("swIpAddress", ""))
-                entry["Average %"]    = str(row.get("avgRxStr", ""))
-                entry["Peak %"]       = str(row.get("maxRxStr", ""))
-                entry["Last Updated"] = str(row.get("lastUpdateTimeStr", ""))
-                key = "{}-{}".format(entry["fabricName"], entry["switchName"])
-                mem_tbl.append(entry, key)
-                filled_any = True
+            mem_rows = _safe_get(MEM_PATH, *DEFAULT_Q)
+            status.append({"Mem API": MEM_PATH, "Count": str(len(mem_rows))}, "mem_api")
+            _fill_table(summary, "Memory (%) - Last Day", sorted(mem_rows, key=lambda i: i.get('lastDayMaxRx', 0), reverse=True))
+            added_any = True
         except Exception as e:
-            status_tbl.append({"Memory Error": str(e)}, "mem_err")
+            status.append({"Mem Error": str(e)}, "mem_err")
 
-    # Resultado final (garante visibilidade)
-    if not cpu_enabled and not mem_enabled:
-        status_tbl.append({"Result": "Executed (CPU & Memory disabled in UI)"}, "status")
-    elif filled_any:
-        status_tbl.append({"Result": "Tables added"}, "status")
+    if not cpu_on and not mem_on:
+        status.append({"Result": "Executed (CPU & Memory disabled in UI)"}, "res")
+    elif added_any:
+        status.append({"Result": "Tables added"}, "res")
     else:
-        status_tbl.append({"Result": "Executed (no rows to append)"}, "status")
-
-# ---------------------------------------------------------------------------
+        status.append({"Result": "Executed (no rows added)"}, "res")
 
 def generateReport(context):
-    respObj = WrappersResp.getRespObj()
-    preport = Report("SAN CPU/Mem - " + (template_name if template_name else "Profile"))
-
-    # summary inicial + status principal
-    summary = preport.add_summary()
-    summary["Template"] = "SAN_CPU_MEM_Report"
-    status_main = summary.add_table("Execution Status (Main)", "status_main")
-
+    resp = WrappersResp.getRespObj()
+    report = Report("SAN CPU/Mem - " + (template_name if template_name else "Profile"))
     try:
-        # Lê toggles da UI
-        cpu_enabled = _str_bool(CPU_INCLUDED)
-        mem_enabled = _str_bool(MEM_INCLUDED)
-
-        # Garante ao menos uma seção de status
-        if not cpu_enabled and not mem_enabled:
-            status_main.append({"Info": "CPU & Memory toggles are OFF"}, "info_off")
-
-        # Adiciona CPU/Mem conforme toggles
-        add_cpu_mem_sections(preport, cpu_enabled, mem_enabled)
-
+        add_cpu_mem(
+            report,
+            _bool(CPU_INCLUDED),
+            _bool(MEM_INCLUDED)
+        )
+        resp.setSuccessRetCode()
+        resp.setValue(report)
+        return resp
     except Exception as e:
-        # Nunca deixa sem resultado em Reports
-        status_main.append({"Unhandled Error": str(e)}, "unh_err")
-        respObj.setSuccessRetCode()
-        respObj.setValue(preport)
-        return respObj
-
-    # Sucesso
-    respObj.setSuccessRetCode()
-    respObj.setValue(preport)
-    return respObj
+        # Sempre mostra algo na aba Reports
+        s = report.add_summary()
+        t = s.add_table("Execution Status (Fatal)", "fatal")
+        t.append({"Error": str(e), "Trace": traceback.format_exc()[:900]}, "e")
+        resp.setSuccessRetCode()
+        resp.setValue(report)
+        return resp
 ##
