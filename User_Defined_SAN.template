@@ -1,6 +1,6 @@
 ##template properties
-name =User_Defined;
-description = User-defined report;
+name =User_Defined_X;
+description = User-defined report CPU+MEM;
 tags =san-userdefined;
 userDefined = true;
 supportedPlatforms = All;
